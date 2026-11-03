@@ -27,16 +27,16 @@ Paste the key from your [Z.ai Coding Plan](https://z.ai/manage-apikey/apikey-lis
 ```powershell
 glm                          # Claude Code on GLM, in the current folder
 glm -Status                  # endpoint, token present?, model, profile
-glm -Model glm-5.3-flash[1m] # pin a model for every tier; [1m] = 1M context
+glm -Model glm-5.3[1m]       # pin one model for every tier; [1m] = 1M context window
 glm -Clean                   # use ~/.claude-local (no MCP servers/plugins, cheaper turns)
 glm --resume                 # anything else is passed straight to claude
 ```
 
-By default no model is pinned. Z.ai recommend leaving it unset so the plan routes to its latest model (GLM-5.3 at the time of writing).
+By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3` (1M context, 128K output), Haiku and subagents use `glm-5.3-flash`. The `/model` picker inside Claude Code still shows its Claude labels and prices; ignore those, the ids underneath are GLM and billing is your Z.ai plan.
 
 ## How it works
 
-`glm.ps1` sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` and `API_TIMEOUT_MS` for that one process and runs `claude`. `glm.cmd` is a shim so it also works from cmd.exe. Per the [Z.ai Claude Code docs](https://docs.z.ai/scenario-example/develop-tools/claude).
+`glm.ps1` sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `API_TIMEOUT_MS`, the per-tier `ANTHROPIC_DEFAULT_*_MODEL` ids and the context window for that one process, then runs `claude`. `glm.cmd` is a shim so it also works from cmd.exe. Per the [Z.ai Claude Code docs](https://docs.z.ai/scenario-example/develop-tools/claude).
 
 ## Uninstall
 
