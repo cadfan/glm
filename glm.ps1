@@ -30,7 +30,7 @@
   new version. Set GLM_NO_UPDATE=1 to disable the check entirely (e.g. in scripts).
 #>
 
-$GlmVersion = "1.1.0"
+$GlmVersion = "0.1.0"
 $RepoRaw    = "https://raw.githubusercontent.com/cadfan/glm/main"
 
 # Hand-parsed so claude's own flags (-p, --output-format, --resume ...) pass through untouched.
