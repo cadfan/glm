@@ -26,18 +26,29 @@ Paste the key from your [Z.ai Coding Plan](https://z.ai/manage-apikey/apikey-lis
 
 ```powershell
 glm                          # Claude Code on GLM, in the current folder
-glm -Status                  # endpoint, token present?, model, profile
+glm -Status                  # version, endpoint, token present?, models, profile (no launch)
 glm -Model glm-5.3[1m]       # pin one model for every tier; [1m] = 1M context window
 glm -Clean                   # use ~/.claude-local (no MCP servers/plugins, cheaper turns)
+glm -Update                  # check GitHub now, install a newer glm if there is one
+glm -NoUpdate                # skip the daily update check for this launch
+glm -Version                 # print the version
 glm --resume                 # anything else is passed straight to claude
 ```
 
-By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3` (1M context, 128K output), Haiku and subagents use `glm-5.3-flash`. The `/model` picker inside Claude Code still shows its Claude labels and prices; ignore those, the ids underneath are GLM and billing is your Z.ai plan.
+By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3`, Haiku and subagents use `glm-5.3-flash`. Both are 1M context, 128K output on Z.ai's side; the session window Claude Code works to is 200K unless you pin a `[1m]` id.
+
+### The `/model` picker
+
+Inside Claude Code, `/model` shows the GLM models by name with their context and output sizes, not the stock Opus/Sonnet/Haiku rows. That comes from a `modelPicker` block the launcher writes to `~/.config/glm/settings.json` and passes with `--settings`, so your own `~/.claude/settings.json` is never touched. If you pass your own `--settings`, the curated picker is skipped. Prices shown in the picker are Anthropic list prices and mean nothing here; billing is your Z.ai plan.
+
+### Updates
+
+Once a day, before launching, `glm` reads the version line of `glm.ps1` on GitHub. If it is newer, it downloads `glm.ps1` and `glm.cmd`, checks the new script parses, keeps the old one as `glm.ps1.bak`, and carries on with the new version. `glm -Update` forces the check. `glm -NoUpdate` skips it for one launch. Set `GLM_NO_UPDATE=1` to turn it off entirely, for scripts. The check uses a 5-second timeout and goes silent when offline.
 
 ## How it works
 
-`glm.ps1` sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `API_TIMEOUT_MS`, the per-tier `ANTHROPIC_DEFAULT_*_MODEL` ids and the context window for that one process, then runs `claude`. `glm.cmd` is a shim so it also works from cmd.exe. Per the [Z.ai Claude Code docs](https://docs.z.ai/scenario-example/develop-tools/claude).
+`glm.ps1` sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `API_TIMEOUT_MS`, the per-tier `ANTHROPIC_DEFAULT_*_MODEL` ids and display names, and the context window for that one process, writes the picker settings, then runs `claude --settings <picker> <your args>`. `glm.cmd` is a shim so it also works from cmd.exe. Per the [Z.ai Claude Code docs](https://docs.z.ai/scenario-example/develop-tools/claude).
 
 ## Uninstall
 
-Delete `~/.local/bin/glm.ps1`, `~/.local/bin/glm.cmd` and `~/.config/glm/`.
+Delete `~/.local/bin/glm.ps1`, `~/.local/bin/glm.cmd` (and `glm.ps1.bak` if present) and `~/.config/glm/`.
