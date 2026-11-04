@@ -41,6 +41,16 @@ By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3`, Haiku 
 
 Inside Claude Code, `/model` shows the GLM models by name with their context and output sizes, not the stock Opus/Sonnet/Haiku rows. That comes from a `modelPicker` block the launcher writes to `~/.config/glm/settings.json` and passes with `--settings`, so your own `~/.claude/settings.json` is never touched. If you pass your own `--settings`, the curated picker is skipped. Prices shown in the picker are Anthropic list prices and mean nothing here; billing is your Z.ai plan.
 
+### Upgrading an older install
+
+If your copy predates 0.1.0 it has no updater, so run the install one-liner again. It overwrites `glm.ps1` and `glm.cmd` and leaves your stored token alone:
+
+```powershell
+irm https://raw.githubusercontent.com/cadfan/glm/main/install.ps1 | iex
+```
+
+Check with `glm -Version`. That is the last time you need to do it by hand.
+
 ### Updates
 
 Once a day, before launching, `glm` reads the version line of `glm.ps1` on GitHub. If it is newer, it downloads `glm.ps1` and `glm.cmd`, checks the new script parses, keeps the old one as `glm.ps1.bak`, and carries on with the new version. `glm -Update` forces the check. `glm -NoUpdate` skips it for one launch. Set `GLM_NO_UPDATE=1` to turn it off entirely, for scripts. The check uses a 5-second timeout and goes silent when offline.

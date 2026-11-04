@@ -23,4 +23,9 @@ if (($userPath -split ';') -notcontains $bin) {
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
   Write-Host "Claude Code not found. Install it first:  irm https://claude.ai/install.ps1 | iex" -ForegroundColor Yellow
 }
-Write-Host "installed. Next:  glm -SetToken   then   glm" -ForegroundColor Green
+$ver = if ((Get-Content (Join-Path $bin "glm.ps1") -Raw) -match '\$GlmVersion\s*=\s*"([\d.]+)"') { $Matches[1] } else { "unknown" }
+if (Test-Path (Join-Path $HOME ".config\glm\token")) {
+  Write-Host "upgraded to glm $ver (your stored token was kept). From now on it updates itself." -ForegroundColor Green
+} else {
+  Write-Host "installed glm $ver. Next:  glm -SetToken   then   glm" -ForegroundColor Green
+}
