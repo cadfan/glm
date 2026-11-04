@@ -27,15 +27,16 @@ Paste the key from your [Z.ai Coding Plan](https://z.ai/manage-apikey/apikey-lis
 ```powershell
 glm                          # Claude Code on GLM, in the current folder
 glm -Status                  # version, endpoint, token present?, models, profile (no launch)
-glm -Model glm-5.3[1m]       # pin one model for every tier; [1m] = 1M context window
+glm -Model glm-5.3           # pin one model for every tier
+glm -Window 200K             # context window Claude Code works to (default 1M)
 glm -Clean                   # use ~/.claude-local (no MCP servers/plugins, cheaper turns)
 glm -Update                  # check GitHub now, install a newer glm if there is one
-glm -NoUpdate                # skip the daily update check for this launch
+glm -NoUpdate                # skip the hourly update check for this launch
 glm -Version                 # print the version
 glm --resume                 # anything else is passed straight to claude
 ```
 
-By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3`, Haiku and subagents use `glm-5.3-flash`. Both are 1M context, 128K output on Z.ai's side; the session window Claude Code works to is 200K unless you pin a `[1m]` id.
+By default the Claude tiers map to GLM models: Opus/Sonnet use `glm-5.3`, Haiku and subagents use `glm-5.3-flash`. Both are 1M context, 128K output on Z.ai's side, and Claude Code is told a 1M window by default. Claude Code would otherwise assume 200K for an id it does not recognise and compact far too early. `-Window` shrinks it if you want shorter, cheaper sessions.
 
 ### The `/model` picker
 
@@ -53,7 +54,7 @@ Check with `glm -Version`. That is the last time you need to do it by hand.
 
 ### Updates
 
-Once a day, before launching, `glm` reads the version line of `glm.ps1` on GitHub. If it is newer, it downloads `glm.ps1` and `glm.cmd`, checks the new script parses, keeps the old one as `glm.ps1.bak`, and carries on with the new version. `glm -Update` forces the check. `glm -NoUpdate` skips it for one launch. Set `GLM_NO_UPDATE=1` to turn it off entirely, for scripts. The check uses a 5-second timeout and goes silent when offline.
+Once an hour at most, before launching, `glm` reads the version line of `glm.ps1` on GitHub. If it is newer, it downloads `glm.ps1` and `glm.cmd`, checks the new script parses, keeps the old one as `glm.ps1.bak`, and carries on with the new version. `glm -Update` forces the check. `glm -NoUpdate` skips it for one launch. Set `GLM_NO_UPDATE=1` to turn it off entirely, for scripts. The check uses a 5-second timeout and goes silent when offline.
 
 ## How it works
 

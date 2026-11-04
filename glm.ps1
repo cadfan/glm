@@ -6,36 +6,37 @@
   glm                      start Claude Code on GLM, in the current directory
   glm -SetToken            store/replace the Z.ai Coding Plan key (prompted, hidden input)
   glm -Status              show version, endpoint, token presence, models; no launch, no network
-  glm -Model glm-5.3[1m]   pin one GLM model for all tiers (default: glm-5.3 big, glm-5.3-flash small)
+  glm -Model glm-5.3       pin one GLM model for all tiers (default: glm-5.3 big, glm-5.3-flash small)
+  glm -Window 200K         context window Claude Code works to (default 1M; accepts 200000, 200K, 1M)
   glm -Clean               use the slim ~/.claude-local profile (no MCP/plugins, far fewer tokens/turn)
   glm -Update              check GitHub now and install a newer glm if there is one, then exit
-  glm -NoUpdate            skip the (once-a-day) update check for this launch
+  glm -NoUpdate            skip the (hourly) update check for this launch
   glm -Version             print the version and exit
   glm <claude args...>     anything else is passed straight to claude (e.g. glm -p "hi", glm --resume)
 
 .NOTES
   Token is stored DPAPI-encrypted (tied to this Windows user) at ~/.config/glm/token.
   Endpoint per https://docs.z.ai/scenario-example/develop-tools/claude . Tiers map to GLM-5.3
-  (opus/sonnet/fable) and GLM-5.3-Flash (haiku/subagents); a [1m] suffix on a model id unlocks
-  the 1M window.
+  (opus/sonnet/fable) and GLM-5.3-Flash (haiku/subagents). Both are 1M context / 128K output on
+  Z.ai's side, and Claude Code is told a 1M window by default; -Window shrinks it.
 
   /model picker: Claude Code's picker is curated via a "modelPicker" settings block, passed with
   --settings so your own settings.json is never touched. It shows the GLM ids with their context
   and output sizes instead of the Opus/Sonnet/Haiku labels. If you pass your own --settings, the
   curated picker is skipped so the two don't fight.
 
-  Updates: once every 24h (or on -Update) the launcher reads the version line of glm.ps1 on
+  Updates: once an hour (or on -Update) the launcher reads the version line of glm.ps1 on
   GitHub (cadfan/glm, main). If it is newer, both files are downloaded, the new script is parsed
   to make sure it is valid, the old one is kept as glm.ps1.bak, and the launch continues on the
   new version. Set GLM_NO_UPDATE=1 to disable the check entirely (e.g. in scripts).
 #>
 
-$GlmVersion = "0.1.0"
+$GlmVersion = "0.1.1"
 $RepoRaw    = "https://raw.githubusercontent.com/cadfan/glm/main"
 
 # Hand-parsed so claude's own flags (-p, --output-format, --resume ...) pass through untouched.
 $SetToken = $false; $Status = $false; $Clean = $false; $Update = $false; $NoUpdate = $false
-$ShowVersion = $false; $Model = ""; $Rest = @()
+$ShowVersion = $false; $Model = ""; $WindowArg = ""; $Rest = @()
 for ($i = 0; $i -lt $args.Count; $i++) {
   switch -Regex ($args[$i]) {
     '^-SetToken$' { $SetToken = $true; continue }
@@ -45,9 +46,22 @@ for ($i = 0; $i -lt $args.Count; $i++) {
     '^-NoUpdate$' { $NoUpdate = $true; continue }
     '^-Version$'  { $ShowVersion = $true; continue }
     '^-Model$'    { $i++; $Model = "$($args[$i])"; continue }
+    '^-Window$'   { $i++; $WindowArg = "$($args[$i])"; continue }
     default       { $Rest += $args[$i] }
   }
 }
+
+# Context window Claude Code works to. Z.ai serves 1M for both GLM ids, so 1M is the default.
+function ConvertTo-Tokens([string]$s) {
+  if ($s -match '^(\d+(?:\.\d+)?)\s*([kKmM])?$') {
+    $n = [double]$Matches[1]
+    switch ($Matches[2]) { { $_ -in 'k','K' } { $n *= 1000 }; { $_ -in 'm','M' } { $n *= 1000000 } }
+    return [int64]$n
+  }
+  Write-Host "-Window expects a token count like 200000, 200K or 1M (got '$s')" -ForegroundColor Red; exit 1
+}
+$WindowTokens = if ($WindowArg) { ConvertTo-Tokens $WindowArg } else { 1000000 }
+$window = if ($WindowTokens -ge 1000000) { "{0:n1}M" -f ($WindowTokens / 1e6) -replace '\.0M$', 'M' } else { "{0}K" -f [int]($WindowTokens / 1000) }
 
 if ($ShowVersion) { Write-Output "glm $GlmVersion"; exit 0 }
 
@@ -90,7 +104,7 @@ function Get-GlmRemoteVersion {
 function Update-Glm([bool]$Force) {
   if ($env:GLM_NO_UPDATE) { return $false }
   if (-not $Force -and (Test-Path $StampFile)) {
-    if (((Get-Date) - (Get-Item $StampFile).LastWriteTime).TotalHours -lt 24) { return $false }
+    if (((Get-Date) - (Get-Item $StampFile).LastWriteTime).TotalHours -lt 1) { return $false }
   }
   New-Item -ItemType Directory -Force $TokenDir | Out-Null
   Set-Content -Path $StampFile -Value (Get-Date -Format o)     # stamp even on failure: no retry storm offline
@@ -132,7 +146,7 @@ function Update-Glm([bool]$Force) {
 function Write-GlmPickerSettings([string]$window) {
   $rows = @(
     @{ model = "glm-5.3";       label = "GLM-5.3";       description = "1M context, 128K output. Z.ai Coding Plan. Session window $window" },
-    @{ model = "glm-5.3-flash"; label = "GLM-5.3-Flash"; description = "1M context, 128K output, fast. Haiku tier and subagents" }
+    @{ model = "glm-5.3-flash"; label = "GLM-5.3-Flash"; description = "1M context, 128K output, fast. Haiku tier and subagents. Session window $window" }
   )
   foreach ($m in @($big, $small) | Select-Object -Unique) {
     if ($rows.model -notcontains $m) { $rows += @{ model = $m; label = $m; description = "pinned with -Model" } }
@@ -158,6 +172,7 @@ if ($Status) {
   Write-Host "endpoint : $BaseUrl"
   Write-Host "token    : $(if ($token) { 'stored (' + $token.Substring(0,[Math]::Min(6,$token.Length)) + '...)' } else { 'MISSING - run: glm -SetToken' })"
   Write-Host "model    : $big (opus/sonnet/fable), $small (haiku/subagents)"
+  Write-Host "window   : $window ($WindowTokens tokens)"
   Write-Host "picker   : curated via --settings $SettingsFile"
   Write-Host "profile  : $(if ($Clean) { '~/.claude-local (clean)' } else { '~/.claude (full)' })"
   exit 0
@@ -193,15 +208,10 @@ $env:ANTHROPIC_DEFAULT_FABLE_MODEL_NAME  = "GLM-5.3"
 $env:ANTHROPIC_DEFAULT_SONNET_MODEL_NAME = "GLM-5.3"
 $env:ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME  = "GLM-5.3-Flash"
 
-# Claude Code doesn't know GLM ids, so tell it the window instead of letting it guess.
-if ($big -like '*[[]1m[]]') {
-  $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS  = "1000000"
-  $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
-  $window = "1M"
-} else {
-  $env:CLAUDE_CODE_MAX_CONTEXT_TOKENS  = "200000"
-  $window = "200K (use -Model glm-5.3[1m] for 1M)"
-}
+# Claude Code doesn't know GLM ids, so tell it the window instead of letting it guess (it would
+# assume 200K). Auto-compact is tied to the same figure so it does not fire early.
+$env:CLAUDE_CODE_MAX_CONTEXT_TOKENS  = "$WindowTokens"
+$env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "$WindowTokens"
 
 if ($Clean) { $env:CLAUDE_CONFIG_DIR = Join-Path $HOME ".claude-local" }
 
